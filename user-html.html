@@ -2,14 +2,194 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BestPay - User Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>BestPay - Premium Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom canvas wheel styles */
+        .wheel-canvas {
+            transition: all 0.2s;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+        }
+        .bottom-nav a.active {
+            background: #4f46e5;
+            color: white;
+        }
+        .bottom-nav a.active i {
+            color: white;
+        }
+        .section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .section.active-section {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .ticket-reply {
+            background: #f1f5f9;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 pb-20">
+    <!-- Main App -->
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-md sticky top-0 z-30">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-coins text-2xl text-indigo-600"></i>
+                    <h1 class="text-xl font-bold text-gray-800">BestPay</h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="kycStatusBadge"></span>
+                    <i class="fas fa-user-circle text-2xl text-gray-600"></i>
+                    <span id="userShortName" class="text-sm font-medium hidden md:inline"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Sections Container -->
+        <div class="container mx-auto px-4 py-5">
+            <!-- Dashboard Section -->
+            <div id="section-dashboard" class="section active-section">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white shadow">
+                        <i class="fas fa-wallet text-3xl mb-2"></i>
+                        <p class="text-sm opacity-90">Withdrawable</p>
+                        <p class="text-2xl font-bold">$<span id="withdrawableBalance">0.00</span></p>
+                    </div>
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow">
+                        <i class="fas fa-chart-line text-3xl mb-2"></i>
+                        <p class="text-sm opacity-90">Invested</p>
+                        <p class="text-2xl font-bold">$<span id="investedBalance">0.00</span></p>
+                    </div>
+                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow">
+                        <i class="fas fa-gift text-3xl mb-2"></i>
+                        <p class="text-sm opacity-90">Bonus</p>
+                        <p class="text-2xl font-bold">$<span id="bonusBalance">0.00</span></p>
+                    </div>
+                    <div class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow">
+                        <i class="fas fa-chart-simple text-3xl mb-2"></i>
+                        <p class="text-sm opacity-90">Total Earned</p>
+                        <p class="text-2xl font-bold">$<span id="totalEarned">0.00</span></p>
+                    </div>
+                </div>
+                <div class="mt-6 bg-white rounded-xl shadow p-5">
+                    <h3 class="font-bold text-lg"><i class="fas fa-fire text-orange-500 mr-2"></i>Login Streak</h3>
+                    <p class="text-2xl font-bold"><span id="streakCount">0</span> days <span class="text-sm text-gray-500">🔥 daily rewards</span></p>
+                    <button onclick="refreshDashboard()" class="mt-3 text-indigo-600 text-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+            </div>
+
+            <!-- Spin Wheel Section -->
+            <div id="section-spin" class="section">
+                <div class="bg-white rounded-2xl shadow-xl p-5">
+                    <h2 class="text-2xl font-bold text-center mb-2"><i class="fas fa-gamepad text-purple-600"></i> Prize Wheel</h2>
+                    <p class="text-center text-sm text-gray-500 mb-4">Stake $2+ and spin to multiply!</p>
+                    
+                    <div class="flex justify-center mb-4">
+                        <canvas id="wheelCanvas" width="300" height="300" class="wheel-canvas rounded-full shadow-lg"></canvas>
+                    </div>
+                    
+                    <div class="flex flex-col gap-3 max-w-sm mx-auto">
+                        <div class="flex gap-2 items-center">
+                            <span class="font-semibold">Stake Amount ($):</span>
+                            <input type="number" id="spinStake" class="border rounded-lg px-3 py-2 flex-1" min="2" step="1" value="2">
+                        </div>
+                        <button id="spinBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition transform active:scale-95">
+                            <i class="fas fa-sync-alt mr-2"></i> SPIN (Deduct Stake)
+                        </button>
+                        <p id="spinResultMsg" class="text-center text-sm font-medium text-gray-700"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Investments Section -->
+            <div id="section-investments" class="section">
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-bold mb-4"><i class="fas fa-chart-line text-green-600"></i> Investment Plans</h2>
+                    <div id="plansList" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
+                    <hr class="my-5">
+                    <h3 class="font-bold text-lg"><i class="fas fa-clock text-orange-500"></i> Active Investments</h3>
+                    <div id="activeInvestments" class="space-y-2 mt-3"></div>
+                </div>
+            </div>
+
+            <!-- Wallet Section (Topup, Withdraw, Refund) -->
+            <div id="section-wallet" class="section">
+                <div class="bg-white rounded-xl shadow p-5 space-y-6">
+                    <div>
+                        <h3 class="font-bold text-lg border-b pb-2"><i class="fas fa-plus-circle text-green-600"></i> Top Up Funds</h3>
+                        <div class="grid grid-cols-2 gap-4 mt-3">
+                            <button onclick="showMpesaTopup()" class="bg-green-100 text-green-800 py-2 rounded-lg"><i class="fab fa-mpesa"></i> M-Pesa</button>
+                            <button onclick="showCryptoTopup()" class="bg-blue-100 text-blue-800 py-2 rounded-lg"><i class="fab fa-bitcoin"></i> Cryptocurrency</button>
+                        </div>
+                        <div id="topupFormArea" class="mt-4 p-3 bg-gray-50 rounded-lg hidden"></div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="font-bold text-lg border-b pb-2"><i class="fas fa-hand-holding-usd text-blue-600"></i> Withdraw Funds</h3>
+                        <button onclick="requestWithdrawal()" class="mt-2 bg-blue-600 text-white px-5 py-2 rounded-lg"><i class="fas fa-money-bill-wave"></i> Request Withdrawal</button>
+                    </div>
+                    
+                    <div>
+                        <h3 class="font-bold text-lg border-b pb-2"><i class="fas fa-undo-alt text-red-500"></i> Refunds & Pending Deposits</h3>
+                        <div id="pendingDepositsList" class="space-y-2 mt-2 text-sm"></div>
+                        <button onclick="loadPendingDeposits()" class="text-indigo-500 text-sm mt-2">Refresh pending</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard Section -->
+            <div id="section-leaderboard" class="section">
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-bold mb-4"><i class="fas fa-trophy text-yellow-500"></i> Top Earners</h2>
+                    <div id="leaderboardList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Tickets Section -->
+            <div id="section-tickets" class="section">
+                <div class="bg-white rounded-xl shadow p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold"><i class="fas fa-headset text-red-500"></i> Support Tickets</h2>
+                        <button onclick="createNewTicket()" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm"><i class="fas fa-plus"></i> New Ticket</button>
+                    </div>
+                    <div id="ticketsList" class="space-y-4 max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <!-- Transactions Section -->
+            <div id="section-transactions" class="section">
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-xl font-bold mb-4"><i class="fas fa-history"></i> All Transactions</h2>
+                    <div id="transactionsList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation Menu -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 bottom-nav flex justify-around items-center py-2 px-3">
+            <a href="#" data-section="dashboard" class="flex flex-col items-center py-1 px-3 rounded-lg transition active"><i class="fas fa-tachometer-alt text-xl"></i><span class="text-xs mt-1">Home</span></a>
+            <a href="#" data-section="spin" class="flex flex-col items-center py-1 px-3 rounded-lg transition"><i class="fas fa-gamepad text-xl"></i><span class="text-xs mt-1">Spin</span></a>
+            <a href="#" data-section="investments" class="flex flex-col items-center py-1 px-3 rounded-lg transition"><i class="fas fa-chart-line text-xl"></i><span class="text-xs mt-1">Invest</span></a>
+            <a href="#" data-section="wallet" class="flex flex-col items-center py-1 px-3 rounded-lg transition"><i class="fas fa-wallet text-xl"></i><span class="text-xs mt-1">Wallet</span></a>
+            <a href="#" data-section="leaderboard" class="flex flex-col items-center py-1 px-3 rounded-lg transition"><i class="fas fa-trophy text-xl"></i><span class="text-xs mt-1">Leaders</span></a>
+            <a href="#" data-section="tickets" class="flex flex-col items-center py-1 px-3 rounded-lg transition"><i class="fas fa-ticket-alt text-xl"></i><span class="text-xs mt-1">Tickets</span></a>
+            <a href="#" data-section="transactions" class="flex flex-col items-center py-1 px-3 rounded-lg transition"><i class="fas fa-exchange-alt text-xl"></i><span class="text-xs mt-1">History</span></a>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, serverTimestamp, addDoc, increment, Timestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, serverTimestamp, addDoc, increment, Timestamp, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyDtGN7KCK0A4fhztLN0CgxsKkGROcO_-vI",
@@ -19,85 +199,89 @@
             messagingSenderId: "583230068716",
             appId: "1:583230068716:web:3e8d298b4d00b46c8652c9"
         };
-        
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         
-        let currentUser = null;
-        let currentUserData = null;
-        let sidebarOpen = false;
+        let currentUser = null, currentUserData = null;
+        let wheelSegments = [];
+        let wheelCanvas, ctx, currentRotation = 0;
         
-        // Check auth and redirect if not logged in or is admin
+        // Default wheel segments (multiplier display)
+        const defaultSegments = [
+            { label: "0x", multiplier: 0, color: "#f87171" },
+            { label: "0.07x", multiplier: 0.07, color: "#60a5fa" },
+            { label: "1x", multiplier: 1, color: "#4ade80" },
+            { label: "5x", multiplier: 5, color: "#fbbf24" },
+            { label: "10x", multiplier: 10, color: "#c084fc" },
+            { label: "FREE", multiplier: "free", color: "#facc15" }
+        ];
+        
+        // Navigation logic: show only one section at a time
+        function initNavigation() {
+            const navLinks = document.querySelectorAll('.bottom-nav a');
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const sectionId = link.getAttribute('data-section');
+                    document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active-section'));
+                    document.getElementById(`section-${sectionId}`).classList.add('active-section');
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    
+                    // Refresh data if needed
+                    if (sectionId === 'wallet') loadPendingDeposits();
+                    if (sectionId === 'tickets') loadTicketsWithReplies();
+                    if (sectionId === 'leaderboard') loadLeaderboard();
+                });
+            });
+            // default active highlight
+            document.querySelector('.bottom-nav a[data-section="dashboard"]').classList.add('active');
+        }
+        
+        // Authentication and bonus
         onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = "registration.html";
-                return;
-            }
-            
+            if (!user) { window.location.href = "registration.html"; return; }
             currentUser = user;
             const userDoc = await getDoc(doc(db, "users", user.uid));
             if (userDoc.exists()) {
                 currentUserData = userDoc.data();
-                if (currentUserData.role === "admin") {
-                    window.location.href = "admin.html";
-                    return;
-                }
+                if (currentUserData.role === "admin") { window.location.href = "admin.html"; return; }
             }
-            
-            await loadDashboard();
-            await checkDailyLoginBonus();
+            await loadCoreData();
+            await checkFirstLoginBonus();
+            await loadWheelConfig();
+            drawWheel();
+            initNavigation();
         });
         
-        async function checkDailyLoginBonus() {
+        async function checkFirstLoginBonus() {
             const uid = currentUser.uid;
-            const today = new Date().toISOString().split('T')[0];
-            const streakRef = doc(db, "login_streaks", uid);
-            const streakSnap = await getDoc(streakRef);
-            
-            if (streakSnap.exists()) {
-                const streak = streakSnap.data();
-                if (streak.lastLoginDate !== today) {
-                    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                    let newStreak = streak.lastLoginDate === yesterday ? (streak.currentStreak || 0) + 1 : 1;
-                    const bonusAmt = Math.min(0.5 + newStreak * 0.1, 5);
-                    
-                    await updateDoc(doc(db, "wallets", uid), { bonusBalance: increment(bonusAmt) });
-                    await updateDoc(doc(db, "users", uid), { withdrawableBalance: increment(bonusAmt), totalEarned: increment(bonusAmt) });
-                    await updateDoc(streakRef, {
-                        currentStreak: newStreak,
-                        longestStreak: Math.max(newStreak, streak.longestStreak || 0),
-                        lastLoginDate: today,
-                        bonusClaimedToday: true
-                    });
-                    await addDoc(collection(db, "transactions"), {
-                        userId: uid, type: "login_bonus", amount: bonusAmt,
-                        status: "completed", description: "Daily login bonus", timestamp: serverTimestamp()
-                    });
-                    
-                    showNotification(`Daily login bonus $${bonusAmt.toFixed(2)} added!`, 'success');
-                    await loadDashboard();
-                }
+            const bonusFlagRef = doc(db, "user_meta", uid);
+            const metaSnap = await getDoc(bonusFlagRef);
+            if (!metaSnap.exists() || !metaSnap.data().firstBonusClaimed) {
+                // award exactly $0.07 as free login bonus
+                await updateDoc(doc(db, "users", uid), {
+                    withdrawableBalance: increment(0.07),
+                    totalEarned: increment(0.07)
+                });
+                await addDoc(collection(db, "transactions"), {
+                    userId: uid, type: "login_bonus", amount: 0.07,
+                    status: "completed", description: "First login free bonus ($0.07)", timestamp: serverTimestamp()
+                });
+                await setDoc(bonusFlagRef, { firstBonusClaimed: true }, { merge: true });
+                showNotification("🎁 Welcome bonus $0.07 added!", 'success');
+                await loadCoreData();
             }
         }
         
-        async function loadDashboard() {
-            await Promise.all([
-                loadWalletInfo(),
-                loadUserInfo(),
-                loadPlans(),
-                loadActiveInvestments(),
-                loadTransactions(),
-                loadTickets(),
-                loadReferralInfo(),
-                loadLeaderboard()
-            ]);
+        async function loadCoreData() {
+            await Promise.all([loadWalletInfo(), loadUserInfo(), loadPlans(), loadActiveInvestments(), loadTransactions(), loadLeaderboard(), loadTicketsWithReplies()]);
         }
         
         async function loadWalletInfo() {
             const walletSnap = await getDoc(doc(db, "wallets", currentUser.uid));
             const wallet = walletSnap.data() || { investedBalance: 0, bonusBalance: 0 };
-            
             document.getElementById('withdrawableBalance').innerText = (currentUserData?.withdrawableBalance || 0).toFixed(2);
             document.getElementById('investedBalance').innerText = wallet.investedBalance.toFixed(2);
             document.getElementById('bonusBalance').innerText = wallet.bonusBalance.toFixed(2);
@@ -105,14 +289,11 @@
         }
         
         async function loadUserInfo() {
-            document.getElementById('userName').innerText = currentUserData?.displayName || currentUser?.email;
-            document.getElementById('userEmail').innerText = currentUser?.email;
-            document.getElementById('kycStatus').innerHTML = `<span class="px-2 py-1 rounded text-xs ${currentUserData?.kycStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${currentUserData?.kycStatus || 'unverified'}</span>`;
-            
+            document.getElementById('userShortName').innerText = currentUserData?.displayName?.split(' ')[0] || currentUser.email.split('@')[0];
             const streakSnap = await getDoc(doc(db, "login_streaks", currentUser.uid));
-            if (streakSnap.exists()) {
-                document.getElementById('streakCount').innerText = streakSnap.data().currentStreak || 0;
-            }
+            if (streakSnap.exists()) document.getElementById('streakCount').innerText = streakSnap.data().currentStreak || 0;
+            const kycStatus = currentUserData?.kycStatus || 'unverified';
+            document.getElementById('kycStatusBadge').innerHTML = `<span class="px-2 py-0.5 rounded text-xs ${kycStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${kycStatus}</span>`;
         }
         
         async function loadPlans() {
@@ -121,490 +302,251 @@
             let html = '';
             snap.forEach(docPlan => {
                 const p = docPlan.data();
-                html += `
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition">
-                        <img src="${p.productImageURL}" class="w-full h-40 object-cover" onerror="this.src='https://via.placeholder.com/400x200'">
-                        <div class="p-4">
-                            <h3 class="font-bold text-lg">${p.name}</h3>
-                            <p class="text-gray-600 text-sm mt-1">${p.productDescription}</p>
-                            <div class="mt-3 space-y-1">
-                                <p class="text-sm"><i class="fas fa-dollar-sign text-green-600"></i> Min: $${p.minAmount}</p>
-                                <p class="text-sm"><i class="fas fa-chart-line text-blue-600"></i> ROI: ${p.roiPercent}% (30 days)</p>
-                            </div>
-                            <button onclick="invest('${docPlan.id}', ${p.minAmount}, ${p.roiPercent})" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg transition">
-                                Invest from Bonus
-                            </button>
-                        </div>
-                    </div>
-                `;
+                html += `<div class="bg-gray-50 rounded-xl p-4 shadow-sm"><h3 class="font-bold">${p.name}</h3><p class="text-sm">${p.productDescription?.substring(0,60)}</p><p class="text-indigo-600 font-bold">Min: $${p.minAmount} | ROI: ${p.roiPercent}%</p><button onclick="investNow('${docPlan.id}', ${p.minAmount}, ${p.roiPercent})" class="mt-2 w-full bg-indigo-600 text-white py-2 rounded-lg">Invest from Bonus</button></div>`;
             });
-            document.getElementById('plansList').innerHTML = html || '<p class="text-gray-500 text-center py-8">No investment plans available</p>';
+            document.getElementById('plansList').innerHTML = html || '<p class="text-center text-gray-500">No active plans</p>';
         }
-        
-        window.invest = async function(planId, minAmount, roiPercent) {
+        window.investNow = async (planId, minAmount, roiPercent) => {
             const walletSnap = await getDoc(doc(db, "wallets", currentUser.uid));
             const bonus = walletSnap.data()?.bonusBalance || 0;
-            
-            if (bonus < minAmount) {
-                showNotification(`Insufficient bonus balance. Need $${minAmount}`, 'error');
-                return;
-            }
-            
-            if (currentUserData?.isSuspended || currentUserData?.isFrozen) {
-                showNotification('Account is suspended or frozen', 'error');
-                return;
-            }
-            
-            const endDate = new Date();
-            endDate.setDate(endDate.getDate() + 30);
-            
-            await addDoc(collection(db, "investments"), {
-                userId: currentUser.uid, planId, amount: minAmount,
-                startDate: serverTimestamp(), endDate: Timestamp.fromDate(endDate),
-                status: "active", roiEarned: minAmount * roiPercent / 100
-            });
-            
-            await updateDoc(doc(db, "wallets", currentUser.uid), {
-                bonusBalance: increment(-minAmount),
-                investedBalance: increment(minAmount)
-            });
-            
-            await addDoc(collection(db, "transactions"), {
-                userId: currentUser.uid, type: "investment", amount: minAmount,
-                status: "completed", description: `Invested in plan`, timestamp: serverTimestamp()
-            });
-            
-            showNotification(`Investment of $${minAmount} created successfully!`, 'success');
-            await loadDashboard();
+            if (bonus < minAmount) return showNotification(`Insufficient bonus balance (need $${minAmount})`, 'error');
+            const endDate = new Date(); endDate.setDate(endDate.getDate() + 30);
+            await addDoc(collection(db, "investments"), { userId: currentUser.uid, planId, amount: minAmount, startDate: serverTimestamp(), endDate: Timestamp.fromDate(endDate), status: "active", roiEarned: minAmount * roiPercent / 100 });
+            await updateDoc(doc(db, "wallets", currentUser.uid), { bonusBalance: increment(-minAmount), investedBalance: increment(minAmount) });
+            await addDoc(collection(db, "transactions"), { userId: currentUser.uid, type: "investment", amount: minAmount, status: "completed", description: `Invested $${minAmount}`, timestamp: serverTimestamp() });
+            showNotification("Investment successful!", 'success');
+            loadCoreData();
         };
         
         async function loadActiveInvestments() {
             const q = query(collection(db, "investments"), where("userId", "==", currentUser.uid), where("status", "==", "active"));
             const snap = await getDocs(q);
             let html = '';
-            snap.forEach(docInv => {
-                const inv = docInv.data();
-                const end = inv.endDate?.toDate() || new Date();
-                html += `
-                    <div class="bg-gray-50 rounded-lg p-3 flex justify-between items-center">
-                        <div>
-                            <p class="font-semibold">$${inv.amount}</p>
-                            <p class="text-xs text-gray-500">Maturity: ${end.toLocaleDateString()}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-green-600 font-semibold">+$${inv.roiEarned}</p>
-                            <p class="text-xs text-gray-500">Expected ROI</p>
-                        </div>
-                    </div>
-                `;
+            snap.forEach(inv => {
+                const data = inv.data();
+                html += `<div class="bg-gray-100 p-3 rounded-lg flex justify-between"><div><span class="font-bold">$${data.amount}</span><p class="text-xs">Matures: ${data.endDate?.toDate().toLocaleDateString()}</p></div><span class="text-green-600">+$${data.roiEarned}</span></div>`;
             });
-            document.getElementById('activeInvestments').innerHTML = html || '<p class="text-gray-500 text-center py-4">No active investments</p>';
+            document.getElementById('activeInvestments').innerHTML = html || '<p class="text-gray-500">No active investments</p>';
         }
         
         async function loadTransactions() {
-            const q = query(collection(db, "transactions"), where("userId", "==", currentUser.uid), orderBy("timestamp", "desc"), limit(20));
+            const q = query(collection(db, "transactions"), where("userId", "==", currentUser.uid), orderBy("timestamp", "desc"), limit(30));
             const snap = await getDocs(q);
             let html = '';
             snap.forEach(tx => {
                 const d = tx.data();
-                const date = d.timestamp?.toDate()?.toLocaleDateString() || 'Just now';
-                const icon = d.type === 'spin_win' ? 'fa-gamepad' : d.type === 'investment' ? 'fa-chart-line' : 'fa-exchange-alt';
-                html += `
-                    <div class="flex items-center justify-between py-2 border-b">
-                        <div class="flex items-center gap-3">
-                            <i class="fas ${icon} w-8 text-gray-400"></i>
-                            <div>
-                                <p class="font-medium">${d.type.replace('_', ' ').toUpperCase()}</p>
-                                <p class="text-xs text-gray-500">${date}</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-semibold ${d.amount > 0 ? 'text-green-600' : 'text-red-600'}">$${d.amount.toFixed(2)}</p>
-                            <p class="text-xs text-gray-500">${d.description}</p>
-                        </div>
-                    </div>
-                `;
+                html += `<div class="flex justify-between border-b py-2"><div><i class="fas fa-exchange-alt mr-2 text-gray-400"></i>${d.type.replace('_',' ')}</div><div class="text-right"><span class="font-semibold ${d.amount>0?'text-green-600':'text-red-600'}">$${d.amount.toFixed(2)}</span><p class="text-xs">${d.description||''}</p></div></div>`;
             });
-            document.getElementById('transactionsList').innerHTML = html || '<p class="text-gray-500 text-center py-4">No transactions yet</p>';
+            document.getElementById('transactionsList').innerHTML = html || '<p class="text-gray-500">No transactions</p>';
         }
         
-        async function loadTickets() {
+        // Tickets with admin replies
+        async function loadTicketsWithReplies() {
             const q = query(collection(db, "support_tickets"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
             const snap = await getDocs(q);
             let html = '';
-            snap.forEach(docTick => {
+            for (const docTick of snap.docs) {
                 const t = docTick.data();
-                const statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'resolved' ? 'text-green-600' : 'text-blue-600';
-                html += `
-                    <div class="border rounded-lg p-3">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h4 class="font-semibold">${t.subject}</h4>
-                                <p class="text-sm text-gray-600 mt-1">${t.message.substring(0, 80)}${t.message.length > 80 ? '...' : ''}</p>
-                            </div>
-                            <span class="text-xs ${statusColor} font-semibold">${t.status}</span>
-                        </div>
-                    </div>
-                `;
-            });
-            document.getElementById('ticketsList').innerHTML = html || '<p class="text-gray-500 text-center py-4">No support tickets</p>';
+                const repliesSnap = await getDocs(collection(db, "support_tickets", docTick.id, "replies"));
+                let repliesHtml = '';
+                repliesSnap.forEach(rep => {
+                    const r = rep.data();
+                    repliesHtml += `<div class="ticket-reply p-2 mt-2 rounded text-sm"><strong>${r.isAdmin ? 'Admin' : 'You'}:</strong> ${r.message}<div class="text-xs text-gray-400">${r.createdAt?.toDate().toLocaleString()}</div></div>`;
+                });
+                html += `<div class="border rounded-lg p-3"><div class="flex justify-between"><h4 class="font-bold">${t.subject}</h4><span class="text-xs px-2 py-0.5 rounded-full bg-gray-200">${t.status}</span></div><p class="text-gray-700 text-sm">${t.message}</p>${repliesHtml || '<p class="text-xs text-gray-400 italic mt-1">No replies yet</p>'}</div>`;
+            }
+            document.getElementById('ticketsList').innerHTML = html || '<p class="text-gray-500 text-center">No tickets, create one!</p>';
         }
-        
-        async function loadReferralInfo() {
-            const link = `${window.location.origin}/registration.html?ref=${currentUserData?.referralCode}`;
-            document.getElementById('referralLink').value = link;
-            
-            const q = query(collection(db, "referrals"), where("referrerId", "==", currentUser.uid));
-            const snap = await getDocs(q);
-            document.getElementById('referralCount').innerText = snap.size;
-        }
-        
-        async function loadLeaderboard() {
-            const q = query(collection(db, "users"), orderBy("totalEarned", "desc"), limit(10));
-            const snap = await getDocs(q);
-            let html = '';
-            let rank = 1;
-            snap.forEach(userDoc => {
-                const u = userDoc.data();
-                if (rank <= 5) {
-                    html += `
-                        <div class="flex items-center justify-between py-2">
-                            <div class="flex items-center gap-3">
-                                <span class="font-bold text-lg ${rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-orange-500' : 'text-gray-600'}">#${rank}</span>
-                                <span>${u.displayName || u.email.split('@')[0]}</span>
-                            </div>
-                            <span class="font-semibold">$${(u.totalEarned || 0).toFixed(2)}</span>
-                        </div>
-                    `;
-                }
-                rank++;
-            });
-            document.getElementById('leaderboardList').innerHTML = html || '<p class="text-gray-500">No data available</p>';
-        }
-        
-        window.createTicket = async function() {
-            const subject = prompt("Ticket Subject:");
+        window.createNewTicket = async () => {
+            const subject = prompt("Ticket subject:");
             if (!subject) return;
             const message = prompt("Describe your issue:");
             if (!message) return;
-            
-            await addDoc(collection(db, "support_tickets"), {
-                userId: currentUser.uid, userEmail: currentUser.email,
-                subject, message, status: "pending", priority: "medium",
-                category: "general", createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(), assignedTo: null
-            });
-            
-            showNotification("Ticket created successfully!", 'success');
-            await loadTickets();
+            await addDoc(collection(db, "support_tickets"), { userId: currentUser.uid, userEmail: currentUser.email, subject, message, status: "open", priority: "medium", createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+            showNotification("Ticket created", 'success');
+            loadTicketsWithReplies();
         };
         
-        window.copyReferralLink = function() {
-            const input = document.getElementById('referralLink');
-            input.select();
-            document.execCommand('copy');
-            showNotification("Referral link copied!", 'success');
-        };
-        
-        window.spinWheel = async function() {
-            const uid = currentUser.uid;
-            const today = new Date().toISOString().split('T')[0];
-            const spinRef = doc(db, "spins", `${uid}_${today}`);
-            const spinSnap = await getDoc(spinRef);
-            
-            let used = spinSnap.exists() ? spinSnap.data().freeSpinsUsed : 0;
-            if (used >= 2) {
-                showNotification("Daily free spins limit reached! Come back tomorrow.", 'error');
-                return;
-            }
-            
-            const config = (await getDoc(doc(db, "spin_config", "settings"))).data();
-            const prize = config.prizeSegments[Math.floor(Math.random() * config.prizeSegments.length)].value;
-            
-            await setDoc(spinRef, {
-                userId: uid, date: today,
-                freeSpinsUsed: used + 1,
-                totalWonToday: increment(prize)
-            }, { merge: true });
-            
-            await updateDoc(doc(db, "wallets", uid), { bonusBalance: increment(prize) });
-            await updateDoc(doc(db, "users", uid), {
-                withdrawableBalance: increment(prize),
-                totalEarned: increment(prize)
-            });
-            
-            await addDoc(collection(db, "transactions"), {
-                userId: uid, type: "spin_win", amount: prize,
-                status: "completed", description: "Spin wheel win",
-                timestamp: serverTimestamp()
-            });
-            
-            showNotification(`🎉 Congratulations! You won $${prize.toFixed(2)}!`, 'success');
-            await loadDashboard();
-        };
-        
-        window.redeemCoupon = async function() {
-            const code = prompt("Enter coupon code:");
-            if (!code) return;
-            
-            const q = query(collection(db, "coupons"), where("code", "==", code), where("isActive", "==", true));
+        // Leaderboard hashed details
+        async function loadLeaderboard() {
+            const q = query(collection(db, "users"), orderBy("totalEarned", "desc"), limit(15));
             const snap = await getDocs(q);
-            
-            if (snap.empty) {
-                showNotification("Invalid or expired coupon code!", 'error');
-                return;
+            let html = '';
+            let rank = 1;
+            for (const userDoc of snap.docs) {
+                const u = userDoc.data();
+                let emailHash = u.email ? u.email.replace(/(.{2})(.*)(?=@)/, (match, p1, p2) => p1 + '***') : '***@***';
+                let phoneHash = u.phoneNumber ? u.phoneNumber.slice(0,3) + '****' + u.phoneNumber.slice(-2) : '*******';
+                const joinDate = u.createdAt?.toDate?.()?.toLocaleDateString() || 'Recent';
+                html += `<div class="flex justify-between items-center border-b pb-2"><div><span class="font-bold">#${rank}</span> ${u.displayName || 'User'}<div class="text-xs text-gray-500">${phoneHash} | ${emailHash}</div></div><div class="text-right"><span class="font-semibold">$${(u.totalEarned || 0).toFixed(2)}</span><div class="text-xs">Joined: ${joinDate}</div></div></div>`;
+                rank++;
             }
-            
-            const coupon = snap.docs[0].data();
-            if (coupon.reward?.cashBonus) {
-                await updateDoc(doc(db, "users", currentUser.uid), {
-                    withdrawableBalance: increment(coupon.reward.cashBonus),
-                    totalEarned: increment(coupon.reward.cashBonus)
-                });
-                await addDoc(collection(db, "transactions"), {
-                    userId: currentUser.uid, type: "coupon_bonus",
-                    amount: coupon.reward.cashBonus, status: "completed",
-                    description: `Coupon: ${code}`, timestamp: serverTimestamp()
-                });
-                await updateDoc(doc(db, "coupons", snap.docs[0].id), { isActive: false, usedCount: increment(1) });
-                showNotification(`$${coupon.reward.cashBonus} added to your balance!`, 'success');
-                await loadDashboard();
-            }
-        };
-        
-        window.requestWithdrawal = async function() {
-            const balance = currentUserData?.withdrawableBalance || 0;
-            if (balance < 10) {
-                showNotification("Minimum withdrawal amount is $10", 'error');
-                return;
-            }
-            
-            const amount = parseFloat(prompt(`Available balance: $${balance.toFixed(2)}\nEnter withdrawal amount:`));
-            if (isNaN(amount) || amount < 10 || amount > balance) {
-                showNotification("Invalid amount", 'error');
-                return;
-            }
-            
-            const method = prompt("Withdrawal method (Bank/Crypto/PayPal):");
-            if (!method) return;
-            
-            await addDoc(collection(db, "withdrawals"), {
-                userId: currentUser.uid, amount, method,
-                address: "user_provided_address", status: "pending",
-                createdAt: serverTimestamp()
-            });
-            
-            showNotification("Withdrawal request submitted for admin approval!", 'success');
-        };
-        
-        window.logout = async function() {
-            await signOut(auth);
-            window.location.href = "registration.html";
-        };
-        
-        window.toggleSidebar = function() {
-            sidebarOpen = !sidebarOpen;
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            if (sidebarOpen) {
-                sidebar.classList.remove('-translate-x-full');
-                overlay.classList.remove('hidden');
-            } else {
-                sidebar.classList.add('-translate-x-full');
-                overlay.classList.add('hidden');
-            }
-        };
-        
-        window.closeSidebar = function() {
-            sidebarOpen = false;
-            document.getElementById('sidebar').classList.add('-translate-x-full');
-            document.getElementById('sidebarOverlay').classList.add('hidden');
-        };
-        
-        window.scrollToSection = function(sectionId) {
-            closeSidebar();
-            const element = document.getElementById(sectionId);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth' });
-            }
-        };
-        
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = `fixed top-20 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-bounce`;
-            notification.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>${message}`;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 3000);
+            document.getElementById('leaderboardList').innerHTML = html || '<p>No data</p>';
         }
-    </script>
-</head>
-<body class="bg-gray-100">
-    <!-- Sidebar Overlay -->
-    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden" onclick="closeSidebar()"></div>
-    
-    <!-- Sidebar Menu -->
-    <div id="sidebar" class="fixed top-0 left-0 h-full w-72 bg-white shadow-2xl z-50 transform -translate-x-full transition-transform duration-300 overflow-y-auto">
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-            <div class="flex justify-between items-center">
-                <div>
-                    <i class="fas fa-coins text-3xl"></i>
-                    <h2 class="text-xl font-bold mt-2">BestPay</h2>
-                    <p class="text-sm opacity-90" id="userName">User</p>
-                </div>
-                <button onclick="closeSidebar()" class="text-white hover:text-gray-200">
-                    <i class="fas fa-times text-2xl"></i>
-                </button>
-            </div>
-        </div>
-        <div class="p-4 space-y-2">
-            <button onclick="scrollToSection('dashboard')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-tachometer-alt w-5 text-blue-600"></i> Dashboard
-            </button>
-            <button onclick="scrollToSection('spin')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-gamepad w-5 text-purple-600"></i> Spin Wheel
-            </button>
-            <button onclick="scrollToSection('investments')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-chart-line w-5 text-green-600"></i> Investment Plans
-            </button>
-            <button onclick="scrollToSection('active')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-clock w-5 text-orange-600"></i> Active Investments
-            </button>
-            <button onclick="scrollToSection('referrals')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-users w-5 text-indigo-600"></i> Referrals
-            </button>
-            <button onclick="scrollToSection('transactions')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-history w-5 text-gray-600"></i> Transactions
-            </button>
-            <button onclick="scrollToSection('tickets')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-headset w-5 text-red-600"></i> Support Tickets
-            </button>
-            <button onclick="scrollToSection('leaderboard')" class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center gap-3">
-                <i class="fas fa-trophy w-5 text-yellow-600"></i> Leaderboard
-            </button>
-            <hr class="my-4">
-            <button onclick="logout()" class="w-full text-left px-4 py-3 hover:bg-red-50 rounded-lg transition flex items-center gap-3 text-red-600">
-                <i class="fas fa-sign-out-alt w-5"></i> Logout
-            </button>
-        </div>
-    </div>
-    
-    <!-- Main Content -->
-    <div class="min-h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-md sticky top-0 z-30">
-            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <button onclick="toggleSidebar()" class="text-2xl focus:outline-none">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h1 class="text-xl font-bold text-blue-600">BestPay Dashboard</h1>
-                <div class="flex items-center gap-3">
-                    <span id="kycStatus"></span>
-                    <i class="fas fa-user-circle text-2xl text-gray-600"></i>
-                </div>
-            </div>
-        </header>
         
-        <div class="container mx-auto px-4 py-6 space-y-6">
-            <!-- Dashboard Section -->
-            <section id="dashboard">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white">
-                        <i class="fas fa-wallet text-3xl mb-2"></i>
-                        <p class="text-sm opacity-90">Withdrawable Balance</p>
-                        <p class="text-2xl font-bold">$<span id="withdrawableBalance">0</span></p>
-                    </div>
-                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-                        <i class="fas fa-chart-line text-3xl mb-2"></i>
-                        <p class="text-sm opacity-90">Invested Amount</p>
-                        <p class="text-2xl font-bold">$<span id="investedBalance">0</span></p>
-                    </div>
-                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white">
-                        <i class="fas fa-gift text-3xl mb-2"></i>
-                        <p class="text-sm opacity-90">Bonus Balance</p>
-                        <p class="text-2xl font-bold">$<span id="bonusBalance">0</span></p>
-                    </div>
-                    <div class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
-                        <i class="fas fa-chart-simple text-3xl mb-2"></i>
-                        <p class="text-sm opacity-90">Total Earned</p>
-                        <p class="text-2xl font-bold">$<span id="totalEarned">0</span></p>
-                    </div>
-                </div>
-            </section>
+        // Wheel config from Firestore or default segments
+        async function loadWheelConfig() {
+            const configRef = doc(db, "spin_config", "wheelSettings");
+            const configSnap = await getDoc(configRef);
+            if (configSnap.exists() && configSnap.data().segments) {
+                wheelSegments = configSnap.data().segments;
+            } else {
+                wheelSegments = [...defaultSegments];
+            }
+        }
+        
+        function drawWheel() {
+            if (!wheelCanvas) {
+                wheelCanvas = document.getElementById('wheelCanvas');
+                if (!wheelCanvas) return;
+                ctx = wheelCanvas.getContext('2d');
+            }
+            const size = wheelCanvas.width;
+            const center = size/2;
+            const radius = size/2 - 5;
+            const angleStep = (Math.PI * 2) / wheelSegments.length;
+            ctx.clearRect(0,0,size,size);
+            for (let i=0; i<wheelSegments.length; i++) {
+                const start = i * angleStep + currentRotation;
+                const end = start + angleStep;
+                ctx.beginPath();
+                ctx.moveTo(center,center);
+                ctx.arc(center,center,radius,start,end);
+                ctx.fillStyle = wheelSegments[i].color;
+                ctx.fill();
+                ctx.save();
+                ctx.translate(center,center);
+                ctx.rotate(start + angleStep/2);
+                ctx.fillStyle = '#1f2937';
+                ctx.font = 'bold 14px "Segoe UI"';
+                ctx.fillText(wheelSegments[i].label, radius-35, 8);
+                ctx.restore();
+            }
+            ctx.beginPath();
+            ctx.arc(center,center,12,0,2*Math.PI);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        // Spin logic: stake deduction, weighted outcome 99.99% for 0 or 1
+        async function performSpin() {
+            const stakeInput = document.getElementById('spinStake');
+            let stake = parseFloat(stakeInput.value);
+            if (isNaN(stake) || stake < 2) { showNotification("Minimum stake is $2", 'error'); return; }
+            const currentBalance = currentUserData?.withdrawableBalance || 0;
+            if (currentBalance < stake) { showNotification("Insufficient withdrawable balance", 'error'); return; }
             
-            <!-- Spin Wheel Section -->
-            <section id="spin" class="bg-white rounded-xl shadow-md p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold"><i class="fas fa-gamepad text-purple-600 mr-2"></i>Spin & Win</h2>
-                    <span class="text-sm text-gray-500"><i class="fas fa-fire"></i> Streak: <span id="streakCount">0</span> days</span>
-                </div>
-                <div class="text-center">
-                    <button onclick="spinWheel()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-full text-xl transition transform hover:scale-105">
-                        <i class="fas fa-sync-alt mr-2"></i>SPIN NOW
-                    </button>
-                    <p class="text-sm text-gray-500 mt-3">2 free spins daily • Win up to $5!</p>
-                </div>
-            </section>
+            // Deduct stake
+            await updateDoc(doc(db, "users", currentUser.uid), { withdrawableBalance: increment(-stake) });
+            await addDoc(collection(db, "transactions"), { userId: currentUser.uid, type: "spin_stake", amount: -stake, status: "completed", description: `Stake for spin`, timestamp: serverTimestamp() });
             
-            <!-- Investment Plans Section -->
-            <section id="investments" class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4"><i class="fas fa-chart-line text-green-600 mr-2"></i>Investment Plans</h2>
-                <div id="plansList" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
-            </section>
+            // Weighted multiplier (99.99% lands on multiplier 0 or 1)
+            let multiplier = 0;
+            let selectedSegment = null;
+            const rand = Math.random();
+            if (rand < 0.9999) {
+                // 99.99% chance: pick 0 or 1 equally
+                multiplier = Math.random() < 0.5 ? 0 : 1;
+                selectedSegment = wheelSegments.find(s => s.multiplier === multiplier);
+                if (!selectedSegment) selectedSegment = wheelSegments[multiplier === 0 ? 0 : 2];
+            } else {
+                // rare 0.01% for other segments (0.07,5,10,free)
+                const rareSegments = wheelSegments.filter(s => s.multiplier !== 0 && s.multiplier !== 1);
+                if (rareSegments.length) selectedSegment = rareSegments[Math.floor(Math.random() * rareSegments.length)];
+                else selectedSegment = wheelSegments[1];
+                multiplier = (selectedSegment.multiplier === 'free') ? 'free' : selectedSegment.multiplier;
+            }
             
-            <!-- Active Investments Section -->
-            <section id="active" class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4"><i class="fas fa-clock text-orange-600 mr-2"></i>Active Investments</h2>
-                <div id="activeInvestments" class="space-y-2"></div>
-            </section>
+            let winAmount = 0;
+            let prizeDesc = '';
+            if (multiplier === 'free') {
+                winAmount = stake * 0.5; // free spin gives half stake bonus
+                prizeDesc = `FREE SPIN bonus $${winAmount.toFixed(2)}`;
+            } else {
+                winAmount = stake * multiplier;
+                prizeDesc = `${multiplier}x -> $${winAmount.toFixed(2)}`;
+            }
             
-            <!-- Referrals Section -->
-            <section id="referrals" class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4"><i class="fas fa-users text-indigo-600 mr-2"></i>Referral Program</h2>
-                <div class="bg-indigo-50 rounded-lg p-4">
-                    <p class="text-sm text-gray-600 mb-2">Share your link and earn 10% commission!</p>
-                    <div class="flex gap-2">
-                        <input type="text" id="referralLink" readonly class="flex-1 px-3 py-2 border rounded-lg bg-white text-sm">
-                        <button onclick="copyReferralLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                    <p class="mt-3 text-sm">Total Referrals: <span id="referralCount" class="font-bold">0</span></p>
-                </div>
-            </section>
+            if (winAmount > 0) {
+                await updateDoc(doc(db, "users", currentUser.uid), { withdrawableBalance: increment(winAmount), totalEarned: increment(winAmount) });
+                await addDoc(collection(db, "transactions"), { userId: currentUser.uid, type: "spin_win", amount: winAmount, status: "completed", description: prizeDesc, timestamp: serverTimestamp() });
+            } else {
+                await addDoc(collection(db, "transactions"), { userId: currentUser.uid, type: "spin_loss", amount: 0, status: "completed", description: "No win this spin", timestamp: serverTimestamp() });
+            }
             
-            <!-- Transactions Section -->
-            <section id="transactions" class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4"><i class="fas fa-history text-gray-600 mr-2"></i>Transaction History</h2>
-                <div id="transactionsList" class="max-h-96 overflow-y-auto"></div>
-            </section>
-            
-            <!-- Support Tickets Section -->
-            <section id="tickets" class="bg-white rounded-xl shadow-md p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold"><i class="fas fa-headset text-red-600 mr-2"></i>Support Tickets</h2>
-                    <button onclick="createTicket()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                        <i class="fas fa-plus mr-1"></i>New Ticket
-                    </button>
-                </div>
-                <div id="ticketsList" class="space-y-3"></div>
-            </section>
-            
-            <!-- Leaderboard Section -->
-            <section id="leaderboard" class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4"><i class="fas fa-trophy text-yellow-600 mr-2"></i>Top Earners Leaderboard</h2>
-                <div id="leaderboardList" class="space-y-2"></div>
-            </section>
-            
-            <!-- Quick Actions -->
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="redeemCoupon()" class="bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold">
-                    <i class="fas fa-ticket-alt mr-2"></i>Redeem Coupon
-                </button>
-                <button onclick="requestWithdrawal()" class="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold">
-                    <i class="fas fa-hand-holding-usd mr-2"></i>Withdraw Funds
-                </button>
-            </div>
-        </div>
-    </div>
+            showNotification(`🎡 You won ${prizeDesc}`, winAmount>0 ? 'success' : 'info');
+            document.getElementById('spinResultMsg').innerHTML = `<span class="text-purple-700">Result: ${prizeDesc}</span>`;
+            await loadCoreData();
+            // animate wheel rotation (visual indicator)
+            currentRotation += (Math.random() * Math.PI * 2);
+            drawWheel();
+        }
+        
+        // Wallet: TopUp Mpesa / Crypto and pending deposits
+        window.showMpesaTopup = () => {
+            const area = document.getElementById('topupFormArea');
+            area.innerHTML = `<div class="space-y-3"><p class="font-semibold"><i class="fab fa-mpesa"></i> M-Pesa Top-up</p><button onclick="window.open('https://lipwa.com','_blank')" class="bg-green-600 text-white px-4 py-2 rounded w-full">Initiate STK Push (lipwa.com)</button><div class="border-t my-2"></div><p class="text-sm text-orange-600">Already topped up but not reflecting?</p><input type="text" id="mpesaMessage" placeholder="Paste message/transaction ID" class="border p-2 rounded w-full"><input type="number" id="mpesaAmount" placeholder="Amount" class="border p-2 rounded w-full"><button onclick="submitPendingTopup('mpesa')" class="bg-blue-500 text-white py-2 rounded w-full">Submit Pending</button></div>`;
+            area.classList.remove('hidden');
+        };
+        window.showCryptoTopup = () => {
+            const area = document.getElementById('topupFormArea');
+            area.innerHTML = `<div class="space-y-3"><p class="font-semibold"><i class="fab fa-bitcoin"></i> Crypto Top-up</p><p class="text-sm">Send crypto to: 0x742d35Cc6634C0532925a3b844Bc9e7595f0b09f</p><div class="border-t my-2"></div><input type="text" id="cryptoTxid" placeholder="Transaction Hash" class="border p-2 rounded w-full"><input type="number" id="cryptoAmount" placeholder="Amount (USD)" class="border p-2 rounded w-full"><button onclick="submitPendingTopup('crypto')" class="bg-blue-500 text-white py-2 rounded w-full">Submit Pending</button></div>`;
+            area.classList.remove('hidden');
+        };
+        window.submitPendingTopup = async (method) => {
+            let txid, amount;
+            if (method === 'mpesa') {
+                txid = document.getElementById('mpesaMessage')?.value;
+                amount = parseFloat(document.getElementById('mpesaAmount')?.value);
+            } else {
+                txid = document.getElementById('cryptoTxid')?.value;
+                amount = parseFloat(document.getElementById('cryptoAmount')?.value);
+            }
+            if (!txid || isNaN(amount) || amount <= 0) { showNotification("Invalid details", 'error'); return; }
+            await addDoc(collection(db, "deposits"), { userId: currentUser.uid, method, reference: txid, amount, status: "pending", createdAt: serverTimestamp() });
+            showNotification("Deposit request submitted, pending admin approval.", 'success');
+            document.getElementById('topupFormArea').classList.add('hidden');
+            loadPendingDeposits();
+        };
+        async function loadPendingDeposits() {
+            const q = query(collection(db, "deposits"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
+            const snap = await getDocs(q);
+            let html = '';
+            snap.forEach(d => {
+                const data = d.data();
+                html += `<div class="bg-gray-100 p-2 rounded flex justify-between"><span>${data.method} - $${data.amount}</span><span class="px-2 rounded text-xs ${data.status==='pending'?'bg-yellow-200':'bg-green-200'}">${data.status}</span></div>`;
+            });
+            document.getElementById('pendingDepositsList').innerHTML = html || '<p class="text-gray-400">No pending deposits</p>';
+        }
+        
+        window.requestWithdrawal = async () => {
+            const balance = currentUserData?.withdrawableBalance || 0;
+            if (balance < 10) return showNotification("Minimum withdrawal $10", 'error');
+            const amount = parseFloat(prompt(`Balance $${balance.toFixed(2)}\nWithdraw amount:`));
+            if (amount < 10 || amount > balance) return;
+            const method = prompt("Method (Bank/Crypto/PayPal):");
+            if (!method) return;
+            await addDoc(collection(db, "withdrawals"), { userId: currentUser.uid, amount, method, status: "pending", createdAt: serverTimestamp() });
+            showNotification("Withdrawal request submitted", 'success');
+        };
+        
+        window.refreshDashboard = () => loadCoreData();
+        
+        function showNotification(msg, type) {
+            const div = document.createElement('div');
+            div.className = `fixed top-20 right-4 z-50 px-5 py-2 rounded-lg shadow text-white ${type==='success'?'bg-green-500':'bg-red-500'} animate-bounce`;
+            div.innerHTML = `<i class="fas fa-bell mr-2"></i>${msg}`;
+            document.body.appendChild(div);
+            setTimeout(()=>div.remove(), 3500);
+        }
+        
+        // Event binding after DOM ready
+        document.getElementById('spinBtn')?.addEventListener('click', performSpin);
+        window.addEventListener('resize', () => drawWheel());
+        setTimeout(() => { if(wheelCanvas) drawWheel(); }, 200);
+    </script>
 </body>
 </html>
